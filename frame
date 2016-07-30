@@ -1,0 +1,243 @@
+t = {}
+c = {}
+b = {}
+ct = {}
+cc = {}
+cb = {}
+local function tT(x,y)
+   x = tonumber(x)
+   y = tonumber(y)
+   local a = ""
+   if setting.format == "large" then
+      if x < 10 then
+         a = "00"..x
+      elseif x < 100 then
+         a = "0"..x
+      else
+         a = x
+      end
+      if y < 10 then
+         a = a.."00"..y
+      elseif y < 100 then
+         a = a.."0"..y
+      else
+         a = a..y
+      end
+   elseif setting.format == "normal" then
+      if x < 10 then
+         a =  "0"..x
+      else
+         a = x
+      end
+      if y < 10 then
+         a = a.."0"..y
+      else
+         a = a..y
+      end
+   else
+      errorLog.write(os.time().." Incorrect format at x:"..x.." y:"..y.."\n")
+   end
+   return a
+end
+-- user settings!
+setting = {}
+setting.useColor = true -- For advanced computers. who uses normal anymore?
+setting.format = "normal" --"normal" = xxyy  "large"  = xxxyyy
+setting.useGetSize = true -- automate MaxX and MaxY
+setting.drawEmpty = true -- So that you can draw to the terminal if false
+setting.initialized = false -- Don't touch.
+setting.logLocation = "log/"..os.day().."/"..os.time()
+setting.defaultBkg = "0"
+setting.defaultClr = "f"
+MaxX = 51
+MaxY = 19
+function is()
+   return setting.initialized
+end
+errorLog = fs.open(tostring(setting.logLocation), "w")
+errorLog.write("Log started\n")
+function sett(x,y,char)
+   t[tT(x,y)] = char
+end
+function setc(x,y,color)
+   c[tT(x,y)] = color
+end
+function setb(x,y,color)
+   b[tT(x,y)] = color
+end
+function setAll(x,y,char,color,bkgclr)
+   local a = tT(x,y)
+   t[a] = char
+   c[a] = color
+   b[a] = bkgclr
+end
+function gett(x,y)
+   local a = t[tT(x,y)]
+   return a
+end
+function getc(x,y)
+   local a = c[tT(x,y)]
+   return a
+end
+function getb(x,y)
+   local a = b[tT(x,y)]
+   return a
+end
+function init()
+   if setting.useGetSize == true then
+      MaxX, MaxY = term.getSize()
+   end
+   local Y = 1
+   while Y < MaxY+1 do
+      local X = 1
+      while X < MaxX+1 do
+         sett(X,Y," ")
+         if setting.useColor == true then
+            setc(X,Y,setting.defaultClr)
+            setb(X,Y,setting.defaultBkg)
+         end
+         X = X + 1
+      end
+      Y = Y + 1
+   end
+   setting.initialized = true
+   return true
+end
+function exit()
+   errorLog.write("Properly closed at "..os.time())
+   errorLog:close()
+   c = nil
+   b = nil
+   t = nil
+   ct = nil
+   cc = nil
+   cb = nil
+end
+function setText(x,y,text)
+   text = tostring(text)
+   if y > 0 and y < MaxY+1 and x > 0 and x < MaxX+1 and string.len(text) + x < MaxX+1 then
+      local a = 0
+      repeat
+         a = a + 1
+         sett(x,y,text:sub(a,a))
+         x = x + 1
+      until a == string.len(text)
+   else
+      errorLog.write(tostring(os.time().." setText incorrect input at x:"..x.." y:"..y.."\n"))
+   end
+end
+function setBkg(color)
+   if setting.useColor then
+      local y = 1
+      while y < MaxY + 1 do
+         local x = 1
+         while x < MaxX + 1 do
+            setb(x,y,color)
+            x = x + 1
+         end
+         y = y + 1
+      end
+   else
+      errorLog.write(os.time().." setBkg called with useColor false at x:"..x.." y:"..y.."\n")
+   end
+end
+function setCol(color)
+   if setting.useColor then
+      local y = 1
+      while y < MaxY + 1 do
+         local x = 1
+         while x < MaxX + 1 do
+            setc(x,y,tostring(color))
+            x = x + 1
+         end
+         y = y + 1
+      end
+   end
+end
+local function tt(x,y)
+   local a = ""
+   if x < 10 then
+      a = "00"..x
+   elseif x < 100 then
+      a = "0"..x
+   else
+      a = x
+   end
+   if y < 10 then
+      a = a.."00"..x
+   elseif y < 100 then
+      a = a.."0"..x
+   else
+      a = a..x
+   end
+   return a
+end
+function saveTo(filename,x1,y1,x2,y2) -- since we dont want to save everything (99x99 canvas)
+   if x1 > 0 and x1 < x2 and y1 > 0 and y1 < y2 and x2 < MaxX+1 and y2 < MaxY+1 then
+      local file = fs.open(filename,"w")
+      local y = y1
+      while y < y2 + 1 do
+         local x = x1
+         while x < x2 do
+            local a = tt(x,y)..gett(x,y)..getc(x,y)..getb(x,y).."\n"
+            file.write(tostring(a))
+            x = x + 1
+         end
+         y = y + 1
+      end
+      file:close()
+   else
+      errorLog.write(os.time().." saveTo incorrect input at x:"..x1.." y:"..y1.."\n")
+   end
+end
+function importFromRaw(filename)
+   file = fs.open(filename, "r")
+   while true do
+      local a = file.readLine()
+      if a == nil then
+         break
+      else
+         local x = 1+tonumber(a:sub(1,3))
+         local y = 1+tonumber(a:sub(4,6))
+         frame.sett(x,y,a:sub(7,7))
+         frame.setc(x,y,a:sub(8,8))
+         frame.setb(x,y,a:sub(9,9))
+      end
+   end
+   file:close()
+end
+--end user functions
+function draw(x,y)
+   local A = tT(x,y)
+   if setting.drawEmpty == false and t[A] == " " then
+      return false
+   else
+      if setting.useColor then
+         term.setCursorPos(x,y)
+         --if not t[A] == nil then
+            term.blit(tostring((t[A] or " ")),tostring(c[A]),tostring(b[A]))
+         --end
+      else
+         term.setCursorPos(x,y)
+         write(t[A])
+      end
+   end
+end
+function drawPart(x1,y1,x2,y2)
+   if x1 > 0 and x1 < x2+1 and y1 > 0 and y1 < y2+1 and x2 < MaxX+1 and y2 < MaxY+1 then
+      local y = y1
+      while y < y2+1 do
+         local x = x1
+         while x < x2+1 do
+            draw(x,y)
+            x = x + 1
+         end
+         y = y + 1
+      end
+   else
+      errorLog.write(os.time().." drawPart incorrect input at x:"..x1.." y:"..y1.."\n")
+   end
+end
+function drawAll()
+   drawPart(1,1,MaxX,MaxY)
+end
