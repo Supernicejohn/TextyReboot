@@ -1,0 +1,223 @@
+local arg = { ... }
+local crazymode = arg[1]
+os.loadAPI("frame")
+frame.init()
+term.clear()
+term.setCursorPos(1,1)
+area_focus = 0
+MaxX, MaxY = term.getSize()
+print("Texty: CCJam2016 version")
+print("Author: Supernicejohn")
+print("Press any key to continue...")
+os.pullEvent("key")
+text = {} -- All text is stored in here
+meta = {} -- Stuff
+meta.bkgclr = "f"
+meta.txtclr = "1"
+xfocus = 1
+yfocus = 1
+local function a(x,y)
+   local temp = ""
+   if y < 10 then
+      temp = "00"..y
+   elseif y < 100 then
+      temp = "0"..y
+   elseif y < 1000 then
+      temp = y
+   end
+   if x < 10 then
+      temp = temp.."00"..x
+   elseif x < 100 then
+      temp = temp.."0"..x
+   elseif x < 1000 then
+      temp = temp..x
+   end
+   return temp
+end
+local function load(path) -- load a textfile
+   if fs.exists(path) == nil then
+       error("Error -43 - File Not Found")
+   else
+      if fs.getSize(path) > 65535 then
+         error("Error -19 - File Too Large")
+      end
+      file = fs.open(path,"r")
+      text = textutils.unserialize(file.readAll())
+      file.close()
+      if fs.exists(path..".meta") then -- load metadata
+         filemeta = fs.open(path..".meta", "r")
+         meta = textutils.unserialize(filemeta.readAll())
+      end
+   end
+end
+local function save(path) -- save a file
+   saveto = fs.open(path,"w")
+   saveto.writeLine(textutils.serialize(text))
+   saveto.close()
+   savetometa = fs.open(path..".meta","w")
+   savetometa.writeLine(textutils.serialize(meta))
+   savetometa.close()
+end
+local function newInput()
+   if area_focus < 0 then
+      area_focus = 1
+   end
+   if xfocus > MaxX then
+      xfocus = xfocus - 1
+   elseif yfocus > MaxY-1 then
+      yfocus = yfocus - 1
+      area_focus = area_focus + 1
+   elseif yfocus < 1 then
+      yfocus = yfocus + 1
+      area_focus = area_focus - 1
+   end
+   frame.setc(xfocus,yfocus,"c")
+   frame.sett(xfocus,yfocus,"_")
+   frame.draw(xfocus,yfocus)
+   e = {os.pullEventRaw()}
+   if e[1] == "mouse_scroll" then
+      if e[2] == 1 then
+         area_focus = area_focus + 1
+      elseif area_focus > 0 then
+         area_focus = area_focus - 1
+      end
+      print(area_focus)
+      sleep(1)
+   elseif e[1] == "mouse_click" then
+      if e[2] == 1 then
+         if e[3] <= MaxX and e[4] < MaxY then
+            frame.sett(xfocus,yfocus," ")
+            if e[3] <= getLine(e[4]) then
+               xfocus = e[3]
+            else
+               xfocus = getLine(e[4])
+            end
+            yfocus = e[4]
+         end
+      end
+   elseif e[1] == "char" then
+      text[a(xfocus,yfocus+area_focus)] = e[2]
+      frame.sett(xfocus,yfocus,e[2])
+      xfocus = xfocus + 1
+      return
+   elseif e[1] == "key" then
+      if e[2] == keys.f1 then
+         save(fileName)
+      elseif e[2] == keys.f2 then
+         save(cRead(13,MaxY))
+      elseif e[2] == keys.f3 then
+         return error("Bye!")
+      elseif e[2] == keys.backspace then
+         if xfocus ~= 1 then
+            draw()
+            xfocus = xfocus - 1
+            text[a(xfocus,yfocus)] = nil
+         else
+            yfocus = yfocus - 1
+            xfocus = getLine()
+            frame.setText(1,yfocus+1,"  ")
+            frame.drawPart(1,yfocus+1,2,yfocus+1)
+         end
+
+      elseif e[2] == keys.enter then
+         frame.setText(1,yfocus,"  ")
+         frame.draw(xfocus,yfocus)
+         draw()
+         yfocus = yfocus + 1
+         xfocus = getLine()
+      end
+
+   end
+end
+function draw()
+   local ycurrent = 1
+   while ycurrent < MaxY do
+      local xcurrent = 1
+      while xcurrent < MaxX+1 do
+         frame.sett(xcurrent,ycurrent,text[a(xcurrent,ycurrent+area_focus)])
+         xcurrent = xcurrent + 1
+      end
+      ycurrent = ycurrent + 1
+   end
+   frame.setText(1,MaxY,"f1/f2: Save  f3: Menu ")
+   frame.drawPart(1,MaxY,MaxX,MaxY)
+   frame.drawPart(xfocus-1,yfocus,xfocus+1,yfocus)
+end
+function cRead(xPos,yPos)
+   term.setCursorPos(xPos,yPos)
+   return read()
+end
+function getLine() -- get last character on line
+   tempx = MaxX
+   while tempx > 1 do
+      if text[a(tempx,yfocus+area_focus)] ~= nil then
+         return tempx + 1
+      else
+         tempx = tempx - 1
+      end
+   end
+   return tempx
+end
+   frame.setCol(meta.txtclr)
+   frame.setBkg(meta.bkgclr)
+while true do -- main loop
+   frame.init()
+   local i = 1
+   frame.setText(2,2,"Texty")
+   frame.setText(3,3,"CCJam2016")
+   frame.setText(4,4,"New textfile")
+   frame.setText(5,5,"Load textfile")
+   frame.setText(6,6,"Exit")
+   frame.setText(2,MaxY-2,"f1: Save | f2: Save as")
+   frame.setText(2,MaxY-1,"f3: Main menu")
+   while true do
+      frame.sett(3,4," ")
+      frame.sett(4,5," ")
+      frame.sett(5,6," ")
+      frame.sett(i+2,i+3,">")
+      frame.drawAll()
+      local e = {os.pullEvent("key")}
+      if i > 1 and e[2] == keys.up then
+         i = i - 1
+      elseif i < 3 and e[2] == keys.down then
+         i = i + 1
+      elseif e[2] == keys.enter then
+         if i == 1 then
+            term.setCursorPos(17,4)
+            write(":")
+            term.setCursorPos(18,4)
+            fileName = read()
+            break
+         elseif i == 2 then
+            frame.sett(19,5,":")
+            frame.drawAll()
+            fileName = cRead(20,5)
+            load(fileName)
+            break
+         elseif i == 3 then
+            break
+         end
+      end
+   end
+   if fileName == nil then
+      break
+   end
+   frame.init()
+   frame.setCol(meta.txtclr)
+   frame.setBkg(meta.bkgclr)
+   term.clear() -- start of editor
+   local p = 0
+   while true do
+      frame.setText(40,MaxY,p)
+      if crazymode == "1" then
+         frame.setCol(math.random(1,9))
+         frame.setBkg(math.random(1,9))
+      else
+         frame.setCol(meta.txtclr)
+         frame.setBkg(meta.bkgclr)
+      end
+      p = p + 1
+      draw()
+      newInput()
+   end
+end
